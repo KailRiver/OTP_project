@@ -42,7 +42,7 @@ otp:
 
 telegram:
   bot:
-    token: 7818404031:AAF6LkBSDJXKniQTKE0UW1qyM2Sk3gdrWT0
+    token: YOUR_TELEGRAM_BOT_TOKEN
 
 smpp:
   host: localhost

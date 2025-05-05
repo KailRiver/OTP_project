@@ -1,220 +1,211 @@
 # OTPService
 
-Сервис для отправки и верификации одноразовых паролей (OTP) через различные каналы связи.
+Сервис для генерации, отправки и верификации одноразовых паролей (OTP) с поддержкой многоканальной доставки и JWT-аутентификацией.
 
 ## Описание
 
-OTPService - это Spring Boot приложение, которое предоставляет API для:
-- Генерации и отправки OTP через SMS (SMPP), Telegram и Email
-- Верификации OTP
-- Управления пользователями и их правами доступа
+OTPService - это Spring Boot приложение, предоставляющее REST API для:
+- Генерации OTP кодов с настраиваемыми параметрами
+- Отправки кодов через SMS (SMPP), Email, Telegram и сохранения в файл
+- Верификации полученных кодов
+- Управления пользователями и ролями (USER/ADMIN)
+- Настройки параметров OTP (длина, время жизни)
 
 ## Технологии
 
-- Java 17
-- Spring Boot 3.4.4
-- Spring Security
-- Spring Data JPA
-- PostgreSQL
-- SMPP (OpenSMPP)
-- Telegram Bot API
-- JWT для аутентификации
-- Swagger/OpenAPI для документации API
+- **Язык**: Java 17
+- **Фреймворки**:
+   - Spring Boot 3.4.4
+   - Spring Security
+   - Spring Data JPA
+- **База данных**: PostgreSQL
+- **Протоколы/API**:
+   - SMPP (OpenSMPP) для SMS
+   - Telegram Bot API
+   - SMTP для Email
+- **Аутентификация**: JWT
+- **Документация**: SpringDoc OpenAPI 3.0
+- **Логирование**: SLF4J + Logback
+- **Тестирование**: JUnit 5, Testcontainers
 
 ## Требования
 
-- Java 17 или выше
-- PostgreSQL
-- Локальный SMPP сервер
-- Docker и Docker Compose (опционально)
+- JDK 17+
+- PostgreSQL 14+
+- SMPP сервер (для SMS)
+- Telegram бот (для Telegram уведомлений)
+- SMTP сервер (для Email)
 
 ## Установка и запуск
 
 1. Клонируйте репозиторий:
 ```bash
-git clone https://github.com/your-username/OTPService.git
-cd OTPService
+git clone git@github.com:KailRiver/OTP_project.git
 ```
 
-2. Запустите базу данных через Docker Compose:
+2. Настройте базу данных (Docker):
 ```bash
 docker-compose up -d postgres
 ```
 
-3. Настройте Telegram бота:
-- Перейдите по ссылке: [@otp_fladx_bot](https://t.me/otp_fladx_bot)
-- Напишите команду `/start` боту, чтобы активировать его
-- Получите chatId из ответа бота
+3. Настройте конфигурацию в `application.yaml`:
+```yaml
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/otp_db
+    username: otp_user
+    password: otp_password
 
-4. Соберите и запустите проект:
+telegram:
+  bot:
+    token: YOUR_TELEGRAM_BOT_TOKEN
+    chat-id: YOUR_CHAT_ID
+
+smpp:
+  host: smpp-server
+  port: 2775
+```
+
+4. Соберите и запустите приложение:
 ```bash
-# Сборка проекта
 ./gradlew build
-
-# Запуск приложения
 ./gradlew bootRun
 ```
 
-## Тестирование API
+## API Документация
+
+После запуска доступны:
+- Swagger UI: `http://localhost:8080/swagger-ui.html`
+- OpenAPI спецификация: `http://localhost:8080/v3/api-docs`
+
+## Примеры запросов
 
 ### 1. Регистрация пользователя
 ```bash
 curl -X POST http://localhost:8080/auth/register \
   -H "Content-Type: application/json" \
   -d '{
-    "username": "testuser",
-    "password": "password123",
-    "role": "USER"
-    "email": "test@example.com",
-    "phoneNumber": "+79991234567",
-    "telegramId": 123456
+    "username": "user1",
+    "password": "securePass123!",
+    "role": "USER",
+    "email": "user@example.com",
+    "phoneNumber": "+79123456789"
   }'
 ```
 
-### 2. Вход в систему
+### 2. Аутентификация
 ```bash
 curl -X POST http://localhost:8080/auth/login \
   -H "Content-Type: application/json" \
   -d '{
-    "username": "testuser",
-    "password": "password123"
+    "username": "user1",
+    "password": "securePass123!"
   }'
 ```
 
-### 3. Отправка OTP
+### 3. Генерация OTP
 ```bash
 curl -X POST http://localhost:8080/otp \
-  -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
   -d '{
-    "operationId": 123,
+    "operationId": "payment-123"
   }'
 ```
 
 ### 4. Верификация OTP
 ```bash
 curl -X POST http://localhost:8080/otp/validate \
-  -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
   -d '{
-    "code": "123456",
-    "operationId": 123,
+    "code": "A1B2C3"
   }'
+```
+
+## Администрирование
+
+### Настройка параметров OTP (только для ADMIN)
+```bash
+curl -X PUT http://localhost:8080/admin/config \
+  -H "Authorization: Bearer ADMIN_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "codeLength": 6,
+    "ttlSeconds": 300
+  }'
+```
+
+### Получение списка пользователей
+```bash
+curl -X GET http://localhost:8080/admin/users \
+  -H "Authorization: Bearer ADMIN_JWT_TOKEN"
 ```
 
 ## Конфигурация
 
-### База данных
-База данных PostgreSQL запускается автоматически через Docker Compose. Настройки по умолчанию:
-- Порт: 5432
-- Пользователь: user
-- Пароль: password
-- База данных: postgres
+Основные параметры в `application.yaml`:
 
-### SMPP сервер
-- Локальный SMPP сервер должен быть запущен
-- Настройки подключения в `application.yaml`
+```yaml
+otp:
+  default-code-length: 6
+  default-ttl-seconds: 300
+  check-expired-delay-ms: 60000
 
-### Почтовый сервер
-- Локальный почтовый сервер запускается автоматически
-
-### Telegram бот
-- Бот доступен по ссылке: [@otp_fladx_bot](https://t.me/otp_fladx_bot)
-- После запуска приложения необходимо:
-    1. Найти бота в Telegram
-    2. Отправить команду `/start`
-    3. Сохранить полученный chatId для отправки OTP
-
-## Документация API
-
-После запуска приложения, документация API доступна по адресу:
-- Swagger UI: `http://localhost:8080/swagger-ui.html`
-- OpenAPI спецификация: `http://localhost:8080/v3/api-docs`
+jwt:
+  secret: "your-256-bit-secret"
+  expiration-ms: 3600000
+```
 
 ## Безопасность
 
-- Все пароли хранятся в зашифрованном виде
-- Используется JWT для аутентификации
-- Реализована защита от брутфорса
-- Все API endpoints защищены с помощью Spring Security
-
-## Лицензия
-
-MIT License
-
-## Архитектура
-
-### Многослойная архитектура
-1. **Controller Layer**
-    - REST API endpoints
-    - Валидация входных данных
-    - Маппинг DTO объектов
-    - Обработка HTTP запросов
-
-2. **Service Layer**
-    - Бизнес-логика приложения
-    - Обработка OTP операций
-    - Управление пользователями
-    - Интеграция с внешними сервисами
-
-3. **Repository Layer**
-    - Взаимодействие с базой данных
-    - JPA репозитории
-    - Кастомные запросы
-
-4. **Integration Layer**
-    - SMPP клиент для отправки SMS
-    - Telegram Bot API
-    - SMTP клиент для отправки email
-    - Внешние API интеграции
-
-5. **Security Layer**
-    - JWT аутентификация
-    - Авторизация на основе ролей
-    - Защита от брутфорса
-    - Валидация токенов
-
-### Компоненты системы
-- **OTP Service**: Основной сервис для генерации и верификации OTP
-- **User Service**: Управление пользователями и их правами
-- **Notification Service**: Отправка уведомлений через разные каналы
-- **Auth Service**: Аутентификация и авторизация
-- **Logging Service**: Централизованное логирование
+- Все пароли хранятся в виде BCrypt хешей
+- JWT токены с ограниченным временем жизни
+- CSRF защита
+- CORS политики
+- Защита эндпоинтов по ролям
 
 ## Логирование
 
-### Уровни логирования
-- **INFO**: Основные операции (регистрация, вход, отправка OTP)
-- **DEBUG**: Детальная информация о процессах
-- **WARN**: Предупреждения и нестандартные ситуации
-- **ERROR**: Ошибки и исключительные ситуации
+Настроено логирование ключевых событий:
+- Аутентификация/авторизация
+- Операции с OTP
+- Интеграционные вызовы
+- Ошибки и исключения
 
-### Логируемые события
-1. **Аутентификация**
-   ```log
-   INFO  [AuthService] - Пользователь testuser успешно зарегистрирован
-   INFO  [AuthService] - Пользователь testuser вошел в систему
-   WARN  [AuthService] - Неудачная попытка входа для пользователя testuser
-   ```
+Пример конфигурации в `logback.xml`:
+```xml
+<configuration>
+    <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+        <file>logs/otp-service.log</file>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+    
+    <root level="INFO">
+        <appender-ref ref="FILE"/>
+    </root>
+</configuration>
+```
 
-2. **OTP Операции**
-   ```log
-   INFO  [OTPService] - OTP отправлен на номер +79991234567
-   INFO  [OTPService] - OTP отправлен в Telegram (chatId: 123456)
-   INFO  [OTPService] - OTP отправлен на email test@example.com
-   INFO  [OTPService] - OTP успешно верифицирован для test@example.com
-   ```
+## Тестирование
 
-3. **Интеграции**
-   ```log
-   INFO  [SMPPClient] - Успешное подключение к SMPP серверу
-   INFO  [TelegramBot] - Бот успешно запущен
-   INFO  [EmailService] - Письмо успешно отправлено
-   ```
+Запуск тестов:
+```bash
+./gradlew test
+```
 
-4. **Ошибки**
-   ```log
-   ERROR [OTPService] - Ошибка при отправке SMS: Connection timeout
-   ERROR [AuthService] - Неверный токен доступа
-   ERROR [UserService] - Пользователь не найден
-   ```
+Тестовая конфигурация использует H2 in-memory БД (`application-test.yaml`).
+
+## Развертывание
+
+Docker образ:
+```bash
+docker build -t otpservice .
+docker run -p 8080:8080 otpservice
+```
+
+## Лицензия
+
+MIT License. Подробности в файле LICENSE.
